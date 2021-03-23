@@ -1,0 +1,14 @@
+{
+    "name": "barrycoleman/akamai-edgeauth-php",
+    "description": "Akamai Edge Auth Token creation package",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Barry Coleman",
+            "email": "barry@barrycoleman.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {}
+}
