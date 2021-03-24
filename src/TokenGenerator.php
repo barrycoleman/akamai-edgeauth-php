@@ -17,7 +17,7 @@ class TokenGenerator {
     }
 
     if (!array_key_exists('key', $this->_config)) {
-      throw new TokenGeneratorException('key must be provided to generate a token');
+      throw new TokenGeneratorException('Key must be provided to generate a token');
     }
 
     if (strlen($this->_config['key']) % 2 !== 0) {
@@ -213,6 +213,6 @@ class TokenGeneratorException extends \Exception {
   }
  
   public function __toString() {
-    return __CLASS__ . ": [{this->code}]: {$this->message}\n";
+    return __CLASS__ . ": [{$this->code}]: {$this->message}\n";
   }
 }

@@ -100,19 +100,19 @@ class TokenGeneratorTest extends TestCase
     $this->assertStringMatchesFormat('st='.$startTime.'~exp='.$endTime.'~acl=/foo~data=dfj%7ehk342%2735%23%25%24%23%25~hmac='.$expectHmac, $token);
   }
 
-  /**
-   * @expectedException barrycoleman\AkamaiEdgeAuth\TokenGeneratorException
-   */
   public function testBadInitializationNoArray()
   {
+    $this->expectException(barrycoleman\AkamaiEdgeAuth\TokenGeneratorException::class);
+    $this->expectExceptionMessage('Key must be provided to generate a token');
+
     $gen = new barrycoleman\AkamaiEdgeAuth\TokenGenerator();
   }
-
-  /**
-   * @expectedException barrycoleman\AkamaiEdgeAuth\TokenGeneratorException
-   */
+ 
   public function testBadInitializationEmptyArray()
   {
+    $this->expectException(barrycoleman\AkamaiEdgeAuth\TokenGeneratorException::class);
+    $this->expectExceptionMessage('Key must be provided to generate a token');
+
     $gen = new barrycoleman\AkamaiEdgeAuth\TokenGenerator([]);
   }
 
