@@ -116,6 +116,20 @@ class TokenGeneratorTest extends TestCase
     $gen = new barrycoleman\AkamaiEdgeAuth\TokenGenerator([]);
   }
 
+  public function testBadKeyUnevenLength()
+  {
+    $this->expectException(barrycoleman\AkamaiEdgeAuth\TokenGeneratorException::class);
+    $this->expectExceptionMessage('Key must be even length');
+    $gen = new barrycoleman\AkamaiEdgeAuth\TokenGenerator(['key'=>'abc1234']);
+  }
+
+  public function testBadKeyNotHexString()
+  {
+    $this->expectException(barrycoleman\AkamaiEdgeAuth\TokenGeneratorException::class);
+    $this->expectExceptionMessage('Key must be a hex string');
+    $gen = new barrycoleman\AkamaiEdgeAuth\TokenGenerator(['key'=>'abcjlkj123']);
+  }
+
   public function testBadInitializationMissingEndTime()
   {
     $gen = new barrycoleman\AkamaiEdgeAuth\TokenGenerator(['key'=>'abc123']);

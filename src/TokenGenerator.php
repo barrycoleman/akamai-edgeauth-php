@@ -20,6 +20,14 @@ class TokenGenerator {
       throw new TokenGeneratorException('key must be provided to generate a token');
     }
 
+    if (strlen($this->_config['key']) % 2 !== 0) {
+      throw new TokenGeneratorException('Key must be even length');
+    }
+
+    if (preg_match("/^[a-f0-9]{1,}$/is", $this->_config['key']) === 0) {
+      throw new TokenGeneratorException('Key must be a hex string');
+    }
+
     if (!array_key_exists('algorithm', $this->_config)) {
       $this->_config['algorithm'] = 'sha256';
     }
