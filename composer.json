@@ -1,7 +1,7 @@
 {
     "name": "barrycoleman/akamai-edgeauth-php",
-    "description": "Akamai Edge Auth Token creation package",
-    "type": "library",
+    "description": "Akamai Edge Auth Token Creation for PHP.",
+    "keywords": ["akamai", "edge", "auth"],
     "license": "MIT",
     "authors": [
         {
@@ -9,11 +9,16 @@
             "email": "barry@barrycoleman.com"
         }
     ],
-    "minimum-stability": "stable",
+    "type": "project",
+    "require": {
+		"php": ">=7.1"
+    },
+    "require-dev": {
+		"phpunit/phpunit": "6.*"
+    },
     "autoload": {
         "psr-4": {
             "barrycoleman\\AkamaiEdgeAuth\\": "src/"
         }
-    },
-    "require": {}
+    }
 }

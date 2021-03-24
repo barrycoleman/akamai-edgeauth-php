@@ -2,10 +2,8 @@
 
 namespace barrycoleman\AkamaiEdgeAuth;
 
-class AkamaiEdgeAuth {
+class TokenGenerator {
   protected $_config = NULL;
-  private static $_entities = array('%21', '%2A', '%27', '%28', '%29', '%3B', '%3A', '%40', '%26', '%3D', '%2B', '%24', '%2C', '%2F', '%3F', '%25', '%23', '%5B', '%5D');
-  private static $_replacements = array('!', '*', "'", "(", ")", ";", ":", "@", "&", "=", "+", "$", ",", "/", "?", "%", "#", "[", "]");
 
   public function __construct($config = NULL) {
     if ($config === NULL) {
@@ -19,7 +17,7 @@ class AkamaiEdgeAuth {
     }
 
     if (!array_key_exists('key', $this->_config)) {
-      throw new ErrorException('key must be provided to generate a token');
+      throw new TokenGeneratorException('key must be provided to generate a token');
     }
 
     if (!array_key_exists('algorithm', $this->_config)) {
@@ -46,7 +44,7 @@ class AkamaiEdgeAuth {
   protected function _escapeEarly($text) {
     if ($this->_config['escapeEarly']) {
       $text = urlencode(utf8_encode($text));
-      $text = str_replace(self::$_entities, self::$_replacements, $text);
+      $text = preg_replace_callback('/%../', function($match) { return strtolower($match[0]); }, $text);
     }
     return $text;
   }
@@ -70,29 +68,29 @@ class AkamaiEdgeAuth {
     if (gettype($start_time) === 'string' && strtolower($start_time) === 'now') {
       $start_time = time();
     } elseif (gettype($start_time) === 'integer' && $start_time <= 0) {
-      throw new ErrorException('startTime must be a number (>0) or "now"');
+      throw new TokenGeneratorException('startTime must be a number (>0) or "now"');
     } elseif (gettype($start_time) !== 'integer') {
-      throw new ErrorException('startTime must be a number (>0) or "now"');
+      throw new TokenGeneratorException('startTime must be a number (>0) or "now"');
     }
 
     if (gettype($end_time) === 'integer' && $end_time <= 0) {
-      throw new ErrorException('endTime must be a number (>0)');
+      throw new TokenGeneratorException('endTime must be a number (>0)');
     } 
 
     if (gettype($this->_config['windowSeconds'] ?? NULL) === 'integer' && $this->_config['windowSeconds'] <= 0) {
-      throw new ErrorException('windowSeconds must be a number (>0)');
+      throw new TokenGeneratorException('windowSeconds must be a number (>0)');
     }
 
     if ($end_time === NULL) {
       if (array_key_exists('windowSeconds', $this->_config)) {
         $end_time = $start_time + $this->_config['windowSeconds'];
       } else {
-        throw new ErrorException('You must provide endTime or windowSeconds');
+        throw new TokenGeneratorException('You must provide endTime or windowSeconds');
       }
     }
 
     if ($start_time && $end_time < $start_time) {
-      throw new ErrorException('End time is before start time');
+      throw new TokenGeneratorException('End time is before start time');
     }
 
     if (array_key_exists('verbose', $this->_config) && $this->_config['verbose']) {
@@ -121,7 +119,7 @@ class AkamaiEdgeAuth {
     }
 
     if (($this->_config['payload'] ?? NULL) !== NULL) {
-      array_push($newToken, "id=" . $this->_escapeEarly($this->_config['payload']));
+      array_push($newToken, "data=" . $this->_escapeEarly($this->_config['payload']));
     }
 
     $hashSource = self::_array_clone($newToken);
@@ -136,7 +134,7 @@ class AkamaiEdgeAuth {
 
     $this->_config['algorithm'] = strtolower($this->_config['algorithm']);
     if (!in_array($this->_config['algorithm'], ['sha256', 'sha1', 'md5'])) {
-      throw new ErrorException('algorithm should be one of sha256, sha1 or md5');
+      throw new TokenGeneratorException('Algorithm should be one of sha256, sha1 or md5');
     }
 
     $hmac = hash_hmac($this->_config['algorithm'], implode($this->_config['fieldDelimiter'], $hashSource), hex2bin($this->_config['key']));
@@ -147,30 +145,26 @@ class AkamaiEdgeAuth {
 
   public function generateACLToken($acl = NULL) {
     if ($acl == NULL) {
-      throw new ErrorException('you must provide an ACL');
+      throw new TokenGeneratorException('You must provide an ACL');
     }
     if (gettype($acl) === 'array') {
       $acl = implode($this->_config['aclDelimiter'], $acl);
     } elseif (gettype($acl) === 'string') {
       // do nothing
     } else {
-      throw new ErrorException('ACL must be a string or array');
+      throw new TokenGeneratorException('ACL must be a string or array');
     }
-    return $this->_generateToken($acl, FALSE);
+    return $this->_generateToken($acl, false);
   }
 
   public function generateURLToken($url = NULL) {
     if ($url == NULL) {
-      throw new ErrorException('you must provide a URL');
+      throw new TokenGeneratorException('You must provide a URL');
     }
-    if (gettype($acl) === 'array') {
-      $acl = implode($this->_config['aclDelimiter'], $acl);
-    } elseif (gettype($acl) === 'string') {
-      // do nothing
-    } else {
-      throw new ErrorException('ACL must be a string or array');
+    if (gettype($url) !== 'string') {
+      throw new TokenGeneratorException('URL must be a string');
     }
-    return $this->_generateToken($url, TRUE);
+    return $this->_generateToken($url, true);
   }
 
   protected function _toString($path = NULL, $isURL = NULL, $start_time = NULL, $end_time = NULL) {
@@ -200,7 +194,17 @@ class AkamaiEdgeAuth {
     echo "   Escape Early   : " . ($this->_config['escapeEarly'] ? "true" : "false") . PHP_EOL;
   }
 
-  public function toString() {
+  public function __toString() {
     $this->_toString(NULL, NULL, NULL, NULL);
+  }
+}
+
+class TokenGeneratorException extends \Exception {
+  public function __construct($message, $code = 0, Throwable $previous = NULL) {
+    parent::__construct($message, $code, $previous);
+  }
+ 
+  public function __toString() {
+    return __CLASS__ . ": [{this->code}]: {$this->message}\n";
   }
 }
