@@ -5,6 +5,45 @@ namespace barrycoleman\AkamaiEdgeAuth;
 class TokenGenerator {
   protected $_config = NULL;
 
+  /**
+   * TokenGenerator constructor.
+   *
+   * Constructs the token generator from the configuration provided.
+   * The configuration should be an array. It must contain a 'key' element and should also contain one of
+   * 'endTime' or 'windowSeconds'.
+   *
+   * Configuration elements:
+   *   'key' - (required) The encryption key to use. This should be the same value as you enter in the Akamai behavior
+   *           Auth Token 2.0 Verification. Must be an even length hexadecimal digit string.
+   *   'startTime' - (optional) The unix time the token is valid from. This will default to the current time. Valid
+   *           values are any integer greater than zero, and the string 'now'.
+   *   'endTime' - (optional) The unix time the token is valid until. This can be any time after the start time. This
+   *           must be provided if 'windowSeconds' is not provided.
+   *   'windowSeconds' - (optional) The number of seconds the token should be valid for from the start time. This must
+   *           be provided if 'endTime' is not provided. 'endTime' has priority over 'windowSeconds' if both are
+   *           provided.
+   *   'algorithm' - (optional) The algorithm to use to create the token. Must be one of 'sha256', 'sha1', or 'md5'.
+   *           Default is 'sha256'.
+   *   'escapeEarly' - (optional) Whether to escape strings before generation of the token. Default is false.
+   *   'fieldDelimiter' - (optional) The character to place between fields in the token. Default is '~'.
+   *           If you intend the token to work in Akamai Auth Token 2.0 Verification behavior you should not change
+   *           this.
+   *   'aclDelimiter' - (optional) The character to place between entries in an ACL array. Defailt is '!'.
+   *           If you intend the token to work in Akamai Auth Token 2.0 Verification behavior you should not change
+   *           this.
+   *   'verbose' - (optional) Will print out (using echo) the configuration of the component during token generation.
+   *           Default is false.
+   *   'ip' - (optional) Used for specifying IP address. Uses escapeEarly if set true.
+   *   'sessionId' - (optional) Used for specifying a session id. Uses escapeEarly if set true.
+   *   'payload' - (optional) Used for specifying a payload. Uses escapeEarly if set true.
+   *   'salt' - (optional) Salt added to the token hash. This is deprecated in Akamai and should not be used for
+   *           new implementations.
+   *   'tokenName' - (optional) This is unused in the current implementation. This would be the name of the cookie,
+   *           query parameter or header to use. Default is '__token__'.
+   *
+   * @param array $config The configuration for the token generator. This should always be passed at least a key.
+   * @throws TokenGeneratorException
+   */
   public function __construct($config = NULL) {
     if ($config === NULL) {
       $this->_config = [];
@@ -24,7 +63,7 @@ class TokenGenerator {
       throw new TokenGeneratorException('Key must be even length');
     }
 
-    if (preg_match("/^[a-f0-9]{1,}$/is", $this->_config['key']) === 0) {
+    if (preg_match("/^[a-f0-9]+$/i", $this->_config['key']) === 0) {
       throw new TokenGeneratorException('Key must be a hex string');
     }
 
@@ -33,7 +72,7 @@ class TokenGenerator {
     }
 
     if (!array_key_exists('escapeEarly', $this->_config)) {
-      $this->_config['escapeEarly'] = FALSE;
+      $this->_config['escapeEarly'] = false;
     }
 
     if (!array_key_exists('fieldDelimiter', $this->_config)) {
@@ -45,47 +84,80 @@ class TokenGenerator {
     }
 
     if (!array_key_exists('verbose', $this->_config)) {
-      $this->_config['verbose'] = FALSE;
+      $this->_config['verbose'] = false;
     }
   }
 
-  protected function _escapeEarly($text) {
+    /**
+     * _escapeEarly()
+     *
+     * URL encode strings and make sure that all %xx hex encodes are lower case
+     *
+     * @param string $text
+     * @return string
+     */
+  protected function _escapeEarly($text): string
+  {
     if ($this->_config['escapeEarly']) {
       $text = urlencode(utf8_encode($text));
-      $text = preg_replace_callback('/%../', function($match) { return strtolower($match[0]); }, $text);
+      $text = preg_replace_callback('/%../', static function($match) { return strtolower($match[0]); }, $text);
     }
     return $text;
   }
 
-  protected static function _array_clone($array) {
-    return array_map(function($element) {
-        return ((is_array($element))
-            ? self::_array_clone($element)
-            : ((is_object($element))
-                ? clone $element
-                : $element
-            )
-        );
+    /**
+     * _array_clone()
+     *
+     * Creates a deep copy of an array
+     *
+     * @param array $array
+     * @return array
+     */
+  protected static function _array_clone($array): array
+  {
+    return array_map(static function($element) {
+        if (is_array($element)) {
+            return self::_array_clone($element);
+        }
+
+        if (is_object($element)) {
+            return clone $element;
+        }
+
+        return $element;
     }, $array);
   }
 
-  protected function _generateToken($path, $isURL) {
+    /**
+     * _generateToken()
+     *
+     * This does the actual token generation. The path is used for either the URL or the ACL. It will already
+     * have been reduced to a single string by the generateXXXToken() functions as appropriate.  Will generate
+     * and URL token if $isURL is true, and an ACL token if $isURL is false.
+     *
+     * @param string $path
+     * @param boolean $isURL
+     * @return string
+     * @throws TokenGeneratorException
+     */
+  protected function _generateToken(string $path, bool $isURL): string
+  {
     $start_time = $this->_config['startTime'] ?? 'now';
     $end_time = $this->_config['endTime'] ?? NULL;
 
-    if (gettype($start_time) === 'string' && strtolower($start_time) === 'now') {
+    if (is_string($start_time) && strtolower($start_time) === 'now') {
       $start_time = time();
-    } elseif (gettype($start_time) === 'integer' && $start_time <= 0) {
+    } elseif (is_int($start_time) && $start_time <= 0) {
       throw new TokenGeneratorException('startTime must be a number (>0) or "now"');
-    } elseif (gettype($start_time) !== 'integer') {
+    } elseif (!is_int($start_time)) {
       throw new TokenGeneratorException('startTime must be a number (>0) or "now"');
     }
 
-    if (gettype($end_time) === 'integer' && $end_time <= 0) {
+    if (is_int($end_time) && $end_time <= 0) {
       throw new TokenGeneratorException('endTime must be a number (>0)');
     } 
 
-    if (gettype($this->_config['windowSeconds'] ?? NULL) === 'integer' && $this->_config['windowSeconds'] <= 0) {
+    if (is_int($this->_config['windowSeconds'] ?? NULL) && $this->_config['windowSeconds'] <= 0) {
       throw new TokenGeneratorException('windowSeconds must be a number (>0)');
     }
 
@@ -102,42 +174,41 @@ class TokenGenerator {
     }
 
     if (array_key_exists('verbose', $this->_config) && $this->_config['verbose']) {
-      $this->_toString($path, $isURL, $start_time, $end_time);
+      echo $this->_to_string($path, $isURL, $start_time, $end_time) . PHP_EOL;
     }
 
-    $hashSource = [];
     $newToken = [];
 
     if (($this->_config['ip'] ?? NULL) !== NULL) {
-      array_push($newToken, "ip=" . $this->_escapeEarly($this->_config['ip']));
+      $newToken[] = "ip=" . $this->_escapeEarly($this->_config['ip']);
     }
 
     if (array_key_exists('startTime', $this->_config)) {
-      array_push($newToken, "st=" . $this->_config['startTime']);
+      $newToken[] = "st=" . $this->_config['startTime'];
     }
 
-    array_push($newToken, "exp=" . $end_time);
+    $newToken[] = "exp=" . $end_time;
 
     if (!$isURL) {
-      array_push($newToken, "acl=" . $path);
+      $newToken[] = "acl=" . $path;
     }
 
     if (($this->_config['sessionId'] ?? NULL) !== NULL) {
-      array_push($newToken, "id=" . $this->_escapeEarly($this->_config['sessionId']));
+      $newToken[] = "id=" . $this->_escapeEarly($this->_config['sessionId']);
     }
 
     if (($this->_config['payload'] ?? NULL) !== NULL) {
-      array_push($newToken, "data=" . $this->_escapeEarly($this->_config['payload']));
+      $newToken[] = "data=" . $this->_escapeEarly($this->_config['payload']);
     }
 
     $hashSource = self::_array_clone($newToken);
 
     if ($isURL) {
-      array_push($hashSource, "url=" . $path);
+      $hashSource[] = "url=" . $this->_escapeEarly($path);
     }
 
     if (($this->_config['salt'] ?? NULL) !== NULL) {
-      array_push($hashSource, "salt=" . $this->_config['salt']);
+      $hashSource[] = "salt=" . $this->_config['salt'];
     }
 
     $this->_config['algorithm'] = strtolower($this->_config['algorithm']);
@@ -146,69 +217,113 @@ class TokenGenerator {
     }
 
     $hmac = hash_hmac($this->_config['algorithm'], implode($this->_config['fieldDelimiter'], $hashSource), hex2bin($this->_config['key']));
-    array_push($newToken, "hmac=" . $hmac);
+    $newToken[] = "hmac=" . $hmac;
 
     return implode($this->_config['fieldDelimiter'], $newToken);
   }
 
+    /**
+     * generateACLToken()
+     *
+     * This is the function to create a return an ACL type token.
+     * The ACL passed in must be non-null and can be a string or an array of strings.
+     *
+     * @param string|array $acl  A string or array of strings of the ACL paths
+     * @return string            Returns the ACL token
+     * @throws TokenGeneratorException
+     */
   public function generateACLToken($acl = NULL) {
     if ($acl == NULL) {
       throw new TokenGeneratorException('You must provide an ACL');
     }
-    if (gettype($acl) === 'array') {
+    if (is_array($acl)) {
       $acl = implode($this->_config['aclDelimiter'], $acl);
-    } elseif (gettype($acl) === 'string') {
-      // do nothing
+    } elseif (is_string($acl)) {
+      $acl = trim($acl);
     } else {
       throw new TokenGeneratorException('ACL must be a string or array');
     }
     return $this->_generateToken($acl, false);
   }
 
-  public function generateURLToken($url = NULL) {
-    if ($url == NULL) {
+    /**
+     * generateURLToken()
+     *
+     * This is the function to create a return a URL type token.
+     * The URL passed in must be non-null and must be a string.
+     *
+     * @param string $url  A string for the URL path
+     * @return string      The URL token
+     * @throws TokenGeneratorException
+     */
+  public function generateURLToken($url = NULL): string
+  {
+    if ($url === NULL) {
       throw new TokenGeneratorException('You must provide a URL');
     }
-    if (gettype($url) !== 'string') {
+    if (!is_string($url)) {
       throw new TokenGeneratorException('URL must be a string');
     }
     return $this->_generateToken($url, true);
   }
 
-  protected function _toString($path = NULL, $isURL = NULL, $start_time = NULL, $end_time = NULL) {
-    echo "Akamai Token Generation Parameters" . PHP_EOL;
+    /**
+     * _to_string()
+     *
+     * Produce a string representation of the object. Values passed in from the object during generation
+     * support verbose mode in _generateToken(). __toString() produces just configuration with no runtime values.
+     *
+     * @param null $path
+     * @param null $isURL
+     * @param null $start_time
+     * @param null $end_time
+     * @return string
+     */
+  protected function _to_string($path = NULL, $isURL = NULL, $start_time = NULL, $end_time = NULL): string
+  {
+    $output = "Akamai Token Generation Parameters" . PHP_EOL;
     if ($isURL === TRUE ) {
-      echo "   URL            : " . $path . PHP_EOL;
+      $output .= "   URL            : " . $path . PHP_EOL;
     } elseif ($isURL === FALSE) {
-      echo "   ACL            : " . $path . PHP_EOL;
+      $output .= "   ACL            : " . $path . PHP_EOL;
     }
-    echo "   Token Type     : " . ($this->_config['tokenType'] ?? "undefined") . PHP_EOL;
-    echo "   Token Name     : " . ($this->_config['tokenName'] ?? "undefined") . PHP_EOL;
-    echo "   Key / Secret   : " . ($this->_config['key'] ?? "undefined") . PHP_EOL;
-    echo "   Algorithm      : " . ($this->_config['algorithm'] ?? "undefined") . PHP_EOL;
-    echo "   Salt           : " . ($this->_config['salt'] ?? "undefined") . PHP_EOL;
-    echo "   IP             : " . ($this->_config['ip'] ?? "undefined") . PHP_EOL;
-    echo "   Payload        : " . ($this->_config['payload'] ?? "undefined") . PHP_EOL;
-    echo "   Session ID     : " . ($this->_config['sessionId'] ?? "undefined") . PHP_EOL;
+    $output .= "   Token Type     : " . ($this->_config['tokenType'] ?? "undefined") . PHP_EOL;
+    $output .= "   Token Name     : " . ($this->_config['tokenName'] ?? "undefined") . PHP_EOL;
+    $output .= "   Key / Secret   : " . ($this->_config['key'] ?? "undefined") . PHP_EOL;
+    $output .= "   Algorithm      : " . ($this->_config['algorithm'] ?? "undefined") . PHP_EOL;
+    $output .= "   Salt           : " . ($this->_config['salt'] ?? "undefined") . PHP_EOL;
+    $output .= "   IP             : " . ($this->_config['ip'] ?? "undefined") . PHP_EOL;
+    $output .= "   Payload        : " . ($this->_config['payload'] ?? "undefined") . PHP_EOL;
+    $output .= "   Session ID     : " . ($this->_config['sessionId'] ?? "undefined") . PHP_EOL;
     if ($start_time) { 
-      echo "   Start Time     : " . $start_time . PHP_EOL;
+      $output .= "   Start Time     : " . $start_time . PHP_EOL;
     }
-    echo "   Window(Seconds): " . ($this->_config['windowSeconds'] ?? "undefined") . PHP_EOL;
+    $output .= "   Window(Seconds): " . ($this->_config['windowSeconds'] ?? "undefined") . PHP_EOL;
     if ($end_time) {
-      echo "   End Time       : " . $end_time . PHP_EOL;
+      $output .= "   End Time       : " . $end_time . PHP_EOL;
     }
-    echo "   Field Delimiter: " . ($this->_config['fieldDelimiter'] ?? "undefined") . PHP_EOL;
-    echo "   ACL Delimiter  : " . ($this->_config['aclDelimiter'] ?? "undefined") . PHP_EOL;
-    echo "   Escape Early   : " . ($this->_config['escapeEarly'] ? "true" : "false") . PHP_EOL;
+    $output .= "   Field Delimiter: " . ($this->_config['fieldDelimiter'] ?? "undefined") . PHP_EOL;
+    $output .= "   ACL Delimiter  : " . ($this->_config['aclDelimiter'] ?? "undefined") . PHP_EOL;
+    $output .= "   Escape Early   : " . ($this->_config['escapeEarly'] ? "true" : "false") . PHP_EOL;
+
+    return $output;
   }
 
-  public function __toString() {
-    $this->_toString(NULL, NULL, NULL, NULL);
+    /**
+     * __toString()
+     *
+     * Produces a printable representation of the object
+     *
+     * @return string
+     */
+  public function __toString(): string
+  {
+    return $this->_to_string(NULL, NULL, NULL, NULL);
   }
 }
 
 class TokenGeneratorException extends \Exception {
-  public function __construct($message, $code = 0, Throwable $previous = NULL) {
+  public function __construct($message, $code = 0, \Throwable $previous = NULL) {
     parent::__construct($message, $code, $previous);
   }
  
