@@ -1,5 +1,7 @@
 # akamai-edgeauth-php : Akamai Edge Authorization Token for PHP
 
+[![Latest Stable Version](https://poser.pugx.org/barrycoleman/akamai-edgeauth-php/v)](//packagist.org/packages/barrycoleman/akamai-edgeauth-php) [![Total Downloads](https://poser.pugx.org/barrycoleman/akamai-edgeauth-php/downloads)](//packagist.org/packages/barrycoleman/akamai-edgeauth-php) [![Latest Unstable Version](https://poser.pugx.org/barrycoleman/akamai-edgeauth-php/v/unstable)](//packagist.org/packages/barrycoleman/akamai-edgeauth-php) [![License](https://poser.pugx.org/barrycoleman/akamai-edgeauth-php/license)](//packagist.org/packages/barrycoleman/akamai-edgeauth-php)
+
 akamai-edgeauth-php is a token generator for use with Akamai Edge AuthorizationToken in 
 an HTTP cookie, query string or HTTP header. You can configure it in the Property Manager
 at https://control.akamai.com. It is used by the behaviors `Auth Token 2.0 Verification` and
