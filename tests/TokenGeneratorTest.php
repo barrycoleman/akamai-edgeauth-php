@@ -169,4 +169,22 @@ class TokenGeneratorTest extends TestCase
     $this->expectExceptionMessage('ACL must be a string or array');
     $gen->generateACLToken(45345);
   }
+
+  public function testStartTimeNowUsesNumericTimestamp()
+  {
+    $before = time();
+    $gen = new barrycoleman\AkamaiEdgeAuth\TokenGenerator(['key'=>'abc123', 'startTime'=>'now', 'windowSeconds'=>3600]);
+    $token = $gen->generateACLToken('/foo');
+    $after = time();
+
+    // Verify st= contains a numeric timestamp, not the literal string "now"
+    $this->assertMatchesRegularExpression('/st=\d+~/', $token);
+    $this->assertStringNotContainsString('st=now', $token);
+
+    // Extract the timestamp and verify it's within the expected range
+    preg_match('/st=(\d+)~/', $token, $matches);
+    $tokenStartTime = (int)$matches[1];
+    $this->assertGreaterThanOrEqual($before, $tokenStartTime);
+    $this->assertLessThanOrEqual($after, $tokenStartTime);
+  }
 }
