@@ -7,7 +7,7 @@ an HTTP cookie, query string or HTTP header. You can configure it in the Propert
 at https://control.akamai.com. It is used by the behaviors `Auth Token 2.0 Verification` and
 `Segmented Media Protection`.
 
-akamai-edgeauth-php supports PHP 7.1+ and depends on hash_hmac() in PHP only.
+akamai-edgeauth-php supports PHP 8.1+ and depends on hash_hmac() in PHP only.
 
 ![Akamai Property Manager image](https://github.com/AstinCHOI/akamai-asset/blob/master/edgeauth/edgeauth.png?raw=true)
 
@@ -48,7 +48,7 @@ The constructor takes an array of parameters as key/value pairs
 | algorithm | (optional) The algorithm to use to create the token. Must be one of 'sha256', 'sha1', or 'md5'. Default is 'sha256'. |
 | escapeEarly | (optional) Whether to escape strings before generation of the token. Default is false. |
 | fieldDelimiter | (optional) The character to place between fields in the token. Default is '~'. If you intend the token to work in Akamai Auth Token 2.0 Verification behavior you should not change this. |
-| aclDelimiter | (optional) The character to place between entries in an ACL array. Defailt is '!'. If you intend the token to work in Akamai Auth Token 2.0 Verification behavior you should not change this. |
+| aclDelimiter | (optional) The character to place between entries in an ACL array. Default is '!'. If you intend the token to work in Akamai Auth Token 2.0 Verification behavior you should not change this. |
 | verbose | (optional) Will print out (using echo) the configuration of the component during token generation. Default is false. |
 | ip | (optional) Used for specifying IP address. Uses escapeEarly if set true. |
 | sessionId | (optional) Used for specifying a session id. Uses escapeEarly if set true. |
